@@ -21,8 +21,8 @@ entity FSM is PORT (
 	out_side_red : OUT std_logic;
 	out_side_yellow : OUT std_logic;
 	out_side_green : OUT std_logic;
-	out_main_walk : OUT std_logic;
-	out_side_walk : OUT std_logic
+	out_main_walk : INOUT std_logic;
+	out_side_walk : INOUT std_logic
 );
 end FSM;
 
@@ -56,6 +56,8 @@ signal clk_count_blink : integer range 0 to sec_05;
 --** signals for registers
 signal reg_main_walk, reg_side_walk, reg_blink : std_logic := '0';
 
+--signals for normal state decision
+signal choice : std_logic :=0;
 
 begin
 
@@ -153,53 +155,123 @@ BEGIN
 END PROCESS;
 
 --** next state; sequential
-PROCESS (state, in_sensor_main)
+PROCESS (state, in_sensor_main, reg_main_walk, reg_side_walk, reg_blink, choice)
 BEGIN
 
 CASE state IS
 
 	-- TODO fill in the missing cases
+
 	WHEN normal =>
-		if (in_side_walk) then 
-			reg_side_walk = '1';
-			reg_blink = '0';
+
+		reg_blink <= '0';
+
+		if (in_side_walk = 1) then 
+			reg_side_walk <= '1';
+		end if;
+
+		if (in_main_walk = 1 ) then 
+			reg_main_walk <= '1';
 		end if;
 		
 		if (choice = '0')then
+			next_state <= main_green_1st;
+		else
+			next_state <= main_side_1st;
+		end if;
+
+ -- MAIN CASES
+
+	WHEN main_green_1st =>
+		if (in_side_walk = 1) then 
+			reg_side_walk <= '1';
+			reg_blink <= '1';
+		end if;
+		if (in_main_walk= 1) then 
+			reg_main_walk <= '1';
+		end if;
+		
+		if (in_sensor_main = 1) then
 			next_state <= main_green_1st_extended;
 		else
 			next_state <= main_green_2nd;
 		end if;
 
-	WHEN main_green_1st =>
-		if (in_side_walk) then 
-			reg_side_walk = '1';
-			reg_blink = '0';
-		end if
-		
-		if (in_sensor_main = 1)then
-			next_state <= main_green_1st_extended;
-		else
-			next_state <= main_green_2nd;
+	WHEN main_green_1st_extended => 
+		if (in_side_walk = 1) then 
+			reg_side_walk <= '1';
+			reg_blink <= '1';
 		end if;
+		if (in_main_walk= 1) then 
+			reg_main_walk <= '1';
+		end if;
+		next_state <= main_green_2nd;
+
+	WHEN main_green_2nd => 
+		
+		if (in_side_walk = 1) then 
+			reg_side_walk <= '1';
+		end if;
+
+		if (out_side_walk = 1){
+			reg_side_walk <= '0';
+		}
+
+		if (in_main_walk= 1) then 
+			reg_main_walk <= '1';   
+		end if;
+
+		next_state <= main_yellow;
 	
 	WHEN main_yellow =>
-		if (in_side_walk=1) then 
-			reg_side_walk = '0';
-			reg_blink = '1';
-			end if
+		if (in_side_walk = 1) then 
+			reg_side_walk <= '1';			
+		end if;
+
+		if (in_main_walk= 1) then 
+			reg_main_walk <= '1';
+		end if;
+
 		next_state <= normal;
-	
-	
-	main_red, --10sec (8+2)
-	main_green_1st, -- 8sec
-	main_green_2nd, --2sec
-	main_green_1st_extended, --5sec
-	main_yellow, --2sec
-	side_red, --10sec (8+2)+(5)
-	side_green_1st, --8sec
-	side_green_2nd, --2sec
-	side_yellow --2sec
+
+-- Side Cases
+
+	WHEN side_green_1st =>
+		if (in_side_walk = 1) then 
+			reg_side_walk <= '1';
+		end if;
+		if (in_main_walk= 1) then 
+			reg_main_walk <= '1';
+			reg_blink <= '1';
+		end if;
+
+		next_state <= side_green_2nd;
+
+	WHEN side_green_2nd => 
+		if (in_side_walk = 1) then 
+			reg_side_walk <= '1';
+		end if;
+
+		if (out_main_walk = 1){
+			reg_main_walk <= '0';
+		}
+
+		if (in_main_walk= 1) then 
+			reg_main_walk <= '1';   
+		end if;
+
+		next_state <= side_yellow;
+
+	WHEN side_yellow =>
+		if (in_side_walk = 1) then 
+			reg_side_walk <= '1';
+		end if;
+
+		if (in_main_walk= 1) then 
+			reg_main_walk <= '1';   
+		end if;
+
+		next_state <= normal;
 
 END CASE;
 
